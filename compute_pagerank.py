@@ -47,7 +47,7 @@ def read_page_links_from_altertable(client):
 
 def write_pagerank_to_altertable(client, pagerank_data):
     """
-    Write PageRank results back to Altertable.
+    Write PageRank results back to Altertable using Arrow Flight bulk insert.
 
     Args:
         client: Altertable client connection
@@ -55,38 +55,39 @@ def write_pagerank_to_altertable(client, pagerank_data):
     """
     print("\nWriting PageRank results to Altertable...")
 
-    # Drop table if exists
-    try:
-        client.execute("DROP TABLE IF EXISTS pagerank_results")
-    except Exception as e:
-        print(f"  Note: {e}")
+    # Prepare data for bulk insert
+    page_ids = [row[0] for row in pagerank_data]
+    ranks = [row[1] for row in pagerank_data]
 
-    # Create results table
-    create_table_sql = """
-    CREATE TABLE pagerank_results (
-        page_id INT NOT NULL,
-        rank DOUBLE NOT NULL
+    # Create Arrow schema
+    schema = pa.schema([
+        ("page_id", pa.int32()),
+        ("rank", pa.float64())
+    ])
+
+    # Create Arrow record batch
+    record_batch = pa.record_batch(
+        [page_ids, ranks],
+        schema=schema
     )
-    """
-    client.execute(create_table_sql)
-    print("  Created pagerank_results table")
 
-    # Insert data in batches
-    batch_size = 100
-    total_batches = (len(pagerank_data) + batch_size - 1) // batch_size
+    # Use ingest with REPLACE mode to drop and recreate table
+    from altertable_flightsql.client import IngestTableMode
 
-    for i in range(0, len(pagerank_data), batch_size):
-        batch = pagerank_data[i:i + batch_size]
-        values = ", ".join([f"({page_id}, {rank})" for page_id, rank in batch])
-        insert_sql = f"INSERT INTO pagerank_results (page_id, rank) VALUES {values}"
-
-        client.execute(insert_sql)
-
-        current_batch = i // batch_size + 1
-        if current_batch % 10 == 0 or current_batch == total_batches:
-            print(f"  Batch {current_batch}/{total_batches} inserted")
-
-    print(f"  Successfully inserted {len(pagerank_data)} PageRank results")
+    print(f"  Inserting {len(pagerank_data)} rows using Arrow Flight bulk insert...")
+    try:
+        with client.ingest(
+            table_name="pagerank_results",
+            schema=schema,
+            schema_name="main", # TODO: remove once backend supports it
+            catalog_name=os.getenv('ALTERTABLE_CATALOG'), # TODO: remove once backend supports it
+            mode=IngestTableMode.REPLACE
+        ) as writer:
+            writer.write(record_batch)
+        print(f"  ✓ Successfully inserted {len(pagerank_data)} PageRank results")
+    except Exception as e:
+        print(f"  ✗ Error during ingest: {e}")
+        raise
 
 
 def compute_pagerank_spark(spark, arrow_table, num_iterations=10, damping_factor=0.85):

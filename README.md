@@ -9,6 +9,7 @@ This project showcases:
 - **Data Generation**: Creates a realistic web page link graph with 1,000 pages
 - **Distributed Computing**: Uses PySpark to compute PageRank in a distributed manner
 - **FlightSQL Integration**: Reads from and writes to Altertable using Apache Arrow FlightSQL
+- **Efficient Bulk Insert**: Uses Arrow Flight's `ingest` method for high-performance data loading
 
 ## What is PageRank?
 
@@ -309,6 +310,6 @@ Modify these in `compute_pagerank.py`:
 
 Modify these in `setup_pagerank_data.py`:
 
-- `num_pages`: Total number of pages (default: 1.000)
+- `num_pages`: Total number of pages (default: 1,000)
 - `min_links`: Minimum outbound links per page (default: 5)
 - `max_links`: Maximum outbound links per page (default: 20)

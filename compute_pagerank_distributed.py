@@ -220,53 +220,83 @@ def compute_pagerank_distributed(spark, num_iterations=10, damping_factor=0.85):
 
 def write_results_to_altertable(client, results_df, batch_size=1000):
     """
-    Write results back to Altertable in batches.
+    Write results back to Altertable using Arrow Flight bulk insert in streaming fashion.
 
-    In production, this would ideally use bulk insert or Arrow Flight put stream.
+    Uses toLocalIterator to stream data from Spark without collecting everything
+    to driver memory. This approach scales to any dataset size.
 
     Args:
         client: Altertable client
         results_df: Spark DataFrame with results
-        batch_size: Number of rows per batch
+        batch_size: Number of rows to batch before writing (default: 1000)
     """
-    print(f"\nWriting results to Altertable...")
+    print(f"\nWriting results to Altertable in streaming fashion...")
 
-    # Drop and create table
+    # Get total count for progress reporting (single aggregation, not collecting data)
+    total_rows = results_df.count()
+    print(f"  Streaming {total_rows:,} rows in batches of {batch_size}...")
+
+    # Create Arrow schema
+    import pyarrow as pa
+    schema = pa.schema([
+        ("page_id", pa.int32()),
+        ("rank", pa.float64())
+    ])
+
+    # Use ingest with REPLACE mode to drop and recreate table
+    from altertable_flightsql.client import IngestTableMode
+
     try:
-        client.execute("DROP TABLE IF EXISTS pagerank_results_distributed")
+        with client.ingest(
+            table_name="pagerank_results_distributed",
+            schema=schema,
+            schema_name="main", # TODO: remove once backend supports it
+            catalog_name=os.getenv('ALTERTABLE_CATALOG'), # TODO: remove once backend supports it
+            mode=IngestTableMode.REPLACE
+        ) as writer:
+            # Use toLocalIterator to stream rows without collecting all to driver
+            # This iterates over the DataFrame one partition at a time
+            page_ids_batch = []
+            ranks_batch = []
+            rows_written = 0
+
+            for row in results_df.toLocalIterator():
+                page_ids_batch.append(row.page_id)
+                ranks_batch.append(row.rank)
+
+                # Write batch when we reach batch_size
+                if len(page_ids_batch) >= batch_size:
+                    record_batch = pa.record_batch(
+                        [page_ids_batch, ranks_batch],
+                        schema=schema
+                    )
+                    writer.write(record_batch)
+                    rows_written += len(page_ids_batch)
+
+                    # Show progress every 10 batches
+                    if (rows_written // batch_size) % 10 == 0:
+                        progress = (rows_written / total_rows) * 100
+                        print(f"    Progress: {rows_written:,}/{total_rows:,} rows ({progress:.1f}%)")
+
+                    # Clear batch
+                    page_ids_batch = []
+                    ranks_batch = []
+
+            # Write remaining rows in final batch
+            if page_ids_batch:
+                record_batch = pa.record_batch(
+                    [page_ids_batch, ranks_batch],
+                    schema=schema
+                )
+                writer.write(record_batch)
+                rows_written += len(page_ids_batch)
+
+        print(f"  ✓ Successfully streamed and inserted {rows_written:,} rows via Arrow Flight")
+        print(f"  ✓ Memory efficient: Data streamed directly from Spark partitions")
+
     except Exception as e:
-        print(f"  Note: {e}")
-
-    create_table_sql = """
-    CREATE TABLE pagerank_results_distributed (
-        page_id INT NOT NULL,
-        rank DOUBLE NOT NULL,
-        partition_id INT
-    )
-    """
-    client.execute(create_table_sql)
-    print(f"  Created table 'pagerank_results_distributed'")
-
-    # Convert to list for insertion
-    # Note: In production, you'd use Spark's JDBC write or Arrow Flight
-    results = results_df.collect()
-    total_rows = len(results)
-
-    print(f"  Inserting {total_rows:,} rows in batches of {batch_size}...")
-
-    for i in range(0, total_rows, batch_size):
-        batch = results[i:i + batch_size]
-        values = ", ".join([f"({row.page_id}, {row.rank}, 0)" for row in batch])
-        insert_sql = f"INSERT INTO pagerank_results_distributed (page_id, rank, partition_id) VALUES {values}"
-
-        client.execute(insert_sql)
-
-        current_batch = i // batch_size + 1
-        total_batches = (total_rows + batch_size - 1) // batch_size
-        if current_batch % 10 == 0 or current_batch == total_batches:
-            print(f"    Batch {current_batch}/{total_batches} inserted")
-
-    print(f"  ✓ Successfully inserted {total_rows:,} rows")
+        print(f"  ✗ Error during ingest: {e}")
+        raise
 
 
 def main():
