@@ -196,9 +196,7 @@ def main():
     print(f"Username: {username}")
 
     # Initialize Spark session
-    # Set JAVA_HOME to use Java 17 for compatibility with PySpark 4.x
-    os.environ['JAVA_HOME'] = '/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home'
-
+    # Note: JAVA_HOME must be set to Java 17 or compatible version
     print("\nInitializing Spark session...")
     spark = SparkSession.builder \
         .appName("PageRank") \

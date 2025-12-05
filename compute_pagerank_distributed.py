@@ -288,7 +288,7 @@ def main():
     print(f"Username: {username}")
 
     # Initialize Spark session with distributed configuration
-    os.environ['JAVA_HOME'] = '/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home'
+    # Note: JAVA_HOME must be set to Java 17 or compatible version
 
     print("\nInitializing Spark session for distributed processing...")
     spark = SparkSession.builder \
