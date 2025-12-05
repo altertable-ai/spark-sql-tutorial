@@ -250,6 +250,8 @@ def write_results_to_altertable(client, results_df, batch_size=1000):
         with client.ingest(
             table_name="pagerank_results_distributed",
             schema=schema,
+            schema_name="main", # TODO: remove once backend supports it
+            catalog_name=os.getenv('ALTERTABLE_CATALOG'), # TODO: remove once backend supports it
             mode=IngestTableMode.REPLACE
         ) as writer:
             # Use toLocalIterator to stream rows without collecting all to driver

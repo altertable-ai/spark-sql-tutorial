@@ -79,6 +79,8 @@ def write_pagerank_to_altertable(client, pagerank_data):
         with client.ingest(
             table_name="pagerank_results",
             schema=schema,
+            schema_name="main", # TODO: remove once backend supports it
+            catalog_name=os.getenv('ALTERTABLE_CATALOG'), # TODO: remove once backend supports it
             mode=IngestTableMode.REPLACE
         ) as writer:
             writer.write(record_batch)
