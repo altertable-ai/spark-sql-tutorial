@@ -79,47 +79,43 @@ def main():
     ) as client:
         print("\nConnected successfully!")
 
-        # Drop table if exists
-        print("\nDropping table if exists...")
-        try:
-            client.execute("DROP TABLE IF EXISTS page_links")
-            print("  Table dropped (if existed)")
-        except Exception as e:
-            print(f"  Note: {e}")
-
-        # Create table
-        print("\nCreating table 'page_links'...")
-        create_table_sql = """
-        CREATE TABLE page_links (
-            from_page INT NOT NULL,
-            to_page INT NOT NULL
-        )
-        """
-        client.execute(create_table_sql)
-        print("  Table created successfully!")
-
         # Generate link data
         print("\nGenerating page link data...")
         num_pages = 1000
         links = generate_page_links(num_pages)
         print(f"  Generated {len(links)} links for {num_pages} pages")
 
-        # Insert data in batches
-        print("\nInserting data...")
-        batch_size = 100
-        total_batches = (len(links) + batch_size - 1) // batch_size
+        # Prepare data for bulk insert using Arrow Flight
+        print("\nInserting data using Arrow Flight bulk insert...")
+        from_pages = [link[0] for link in links]
+        to_pages = [link[1] for link in links]
 
-        for i in range(0, len(links), batch_size):
-            batch = links[i:i + batch_size]
-            values = ", ".join([f"({from_page}, {to_page})" for from_page, to_page in batch])
-            insert_sql = f"INSERT INTO page_links (from_page, to_page) VALUES {values}"
+        # Create Arrow schema
+        schema = pa.schema([
+            ("from_page", pa.int32()),
+            ("to_page", pa.int32())
+        ])
 
-            client.execute(insert_sql)
+        # Create Arrow record batch
+        record_batch = pa.record_batch(
+            [from_pages, to_pages],
+            schema=schema
+        )
 
-            current_batch = i // batch_size + 1
-            print(f"  Batch {current_batch}/{total_batches} inserted")
+        # Use ingest with REPLACE mode to drop and recreate table
+        from altertable_flightsql.client import IngestTableMode
 
-        print(f"\n✓ Successfully inserted {len(links)} links into page_links table")
+        try:
+            with client.ingest(
+                table_name="page_links",
+                schema=schema,
+                mode=IngestTableMode.REPLACE
+            ) as writer:
+                writer.write(record_batch)
+            print(f"✓ Successfully inserted {len(links)} links using Arrow Flight bulk insert")
+        except Exception as e:
+            print(f"✗ Error during ingest: {e}")
+            raise
 
         # Verify data
         print("\nVerifying data...")
