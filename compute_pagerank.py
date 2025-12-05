@@ -197,7 +197,7 @@ def main():
     print(f"Username: {username}")
 
     # Initialize Spark session
-    # Note: JAVA_HOME must be set to Java 17 or compatible version
+    # Note: JAVA_HOME must be set to Java 21 or compatible version (17-21)
     print("\nInitializing Spark session...")
     spark = SparkSession.builder \
         .appName("PageRank") \

@@ -318,7 +318,7 @@ def main():
     print(f"Username: {username}")
 
     # Initialize Spark session with distributed configuration
-    # Note: JAVA_HOME must be set to Java 17 or compatible version
+    # Note: JAVA_HOME must be set to Java 21 or compatible version (17-21)
 
     print("\nInitializing Spark session for distributed processing...")
     spark = SparkSession.builder \

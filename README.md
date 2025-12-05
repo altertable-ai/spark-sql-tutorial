@@ -23,7 +23,7 @@ PageRank is the algorithm Google used to rank web pages in search results. It wo
 ## Requirements
 
 - Python 3.13+
-- Java 17 (installed via Homebrew)
+- Java 21 (installed via Homebrew)
 - uv (Python package manager)
 - Access to an Altertable instance
 
@@ -46,12 +46,12 @@ README.md                        # This file
 
 ## Setup
 
-### 1. Install Java 17
+### 1. Install Java 21
 
-The project requires Java 17 for PySpark compatibility:
+The project requires Java 21 for PySpark compatibility:
 
 ```bash
-brew install openjdk@17
+brew install openjdk@21
 ```
 
 ### 2. Set Environment Variables
@@ -59,8 +59,8 @@ brew install openjdk@17
 Configure Java and your Altertable connection:
 
 ```bash
-# Set JAVA_HOME to Java 17 (required for PySpark compatibility)
-export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+# Set JAVA_HOME to Java 21 (required for PySpark compatibility)
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 
 # Configure Altertable connection
 export ALTERTABLE_USERNAME="your_username"
@@ -68,11 +68,11 @@ export ALTERTABLE_PASSWORD="your_password"
 export ALTERTABLE_CATALOG="your_catalog"
 ```
 
-**Note**: The `JAVA_HOME` path shown above is for Homebrew's openjdk@17 on macOS. Adjust the path based on your system:
+**Note**: The `JAVA_HOME` path shown above is for Homebrew's openjdk@21 on macOS. Adjust the path based on your system:
 
-- **macOS (Homebrew)**: `/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home`
-- **Linux**: Typically `/usr/lib/jvm/java-17-openjdk` or similar
-- **Use `java_home` on macOS**: `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`
+- **macOS (Homebrew)**: `/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home`
+- **Linux**: Typically `/usr/lib/jvm/java-21-openjdk` or similar
+- **Use `java_home` on macOS**: `export JAVA_HOME=$(/usr/libexec/java_home -v 21)`
 
 ### 3. Install Dependencies
 
@@ -128,7 +128,7 @@ uv run compute_pagerank.py
 
 This script will:
 
-- Initialize a local Spark session (using Java 17)
+- Initialize a local Spark session (using Java 21)
 - Read the `page_links` table from Altertable
 - Compute PageRank over 10 iterations with damping factor 0.85
 - Store results in a new `pagerank_results` table
@@ -266,17 +266,17 @@ ORDER BY link_count;
 
 If you see `UnsupportedOperationException: getSubject is not supported` or other Java-related errors:
 
-- Ensure Java 17 is installed: `brew install openjdk@17`
-- Set `JAVA_HOME` environment variable to Java 17:
+- Ensure Java 21 is installed: `brew install openjdk@21`
+- Set `JAVA_HOME` environment variable to Java 21:
   ```bash
-  export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+  export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
   ```
 - Verify Java version being used:
   ```bash
   echo $JAVA_HOME
-  $JAVA_HOME/bin/java -version  # Should show version 17
+  $JAVA_HOME/bin/java -version  # Should show version 21
   ```
-- PySpark 4.x requires Java 17 or earlier (not compatible with Java 18+)
+- PySpark 4.x is compatible with Java 8, 11, 17, and 21
 
 ### Memory Issues
 
@@ -293,7 +293,7 @@ If Spark runs out of memory:
 
 | Variable              | Required | Default | Description                                |
 | --------------------- | -------- | ------- | ------------------------------------------ |
-| `JAVA_HOME`           | Yes      | -       | Path to Java 17 installation (for PySpark) |
+| `JAVA_HOME`           | Yes      | -       | Path to Java 21 installation (for PySpark) |
 | `ALTERTABLE_USERNAME` | Yes      | -       | Altertable username                        |
 | `ALTERTABLE_PASSWORD` | Yes      | -       | Altertable password                        |
 | `ALTERTABLE_CATALOG`  | Yes      | -       | Catalog name                               |
