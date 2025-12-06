@@ -9,6 +9,7 @@ Requires environment variables:
 
 import os
 import random
+import pyarrow as pa
 from altertable_flightsql import Client
 
 
@@ -109,8 +110,6 @@ def main():
             with client.ingest(
                 table_name="page_links",
                 schema=schema,
-                schema_name="main", # TODO: remove once backend supports it
-                catalog_name=catalog, # TODO: remove once backend supports it
                 mode=IngestTableMode.REPLACE
             ) as writer:
                 writer.write(record_batch)

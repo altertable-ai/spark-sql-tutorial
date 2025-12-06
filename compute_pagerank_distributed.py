@@ -59,8 +59,9 @@ def create_spark_temp_view_from_altertable(spark, client, table_name, view_name)
 
     # Calculate partition boundaries
     # In a real system, Spark would handle this automatically via JDBC/Flight pushdown
-    num_partitions = min(10, (max_page - min_page + 1) // 100)  # 10 partitions or 1 per 100 pages
-    partition_size = (max_page - min_page + 1) // num_partitions
+    # Ensure at least one partition to avoid division by zero for small datasets
+    num_partitions = max(1, min(10, (max_page - min_page + 1) // 100))
+    partition_size = max(1, (max_page - min_page + 1) // num_partitions)
 
     print(f"  Creating {num_partitions} partitions for distributed read")
 
@@ -98,6 +99,9 @@ def create_spark_temp_view_from_altertable(spark, client, table_name, view_name)
 
     # Union all partitions into a single distributed DataFrame
     # This simulates how Spark would read from multiple partitions in parallel
+    if not partition_dfs:
+        raise ValueError(f"No data returned from source table '{table_name}'")
+
     links_df = partition_dfs[0]
     for df in partition_dfs[1:]:
         links_df = links_df.union(df)
@@ -250,8 +254,6 @@ def write_results_to_altertable(client, results_df, batch_size=1000):
         with client.ingest(
             table_name="pagerank_results_distributed",
             schema=schema,
-            schema_name="main", # TODO: remove once backend supports it
-            catalog_name=os.getenv('ALTERTABLE_CATALOG'), # TODO: remove once backend supports it
             mode=IngestTableMode.REPLACE
         ) as writer:
             # Use toLocalIterator to stream rows without collecting all to driver
